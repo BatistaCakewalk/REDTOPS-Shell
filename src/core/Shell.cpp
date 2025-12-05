@@ -1,6 +1,7 @@
 #include "Shell.h"
 #include "../commands/headers/ping.hpp"
 #include "../commands/headers/sysinfo.hpp"
+#include "../commands/headers/netinfo.hpp"
 #include "CommandRegistry.h"
 #include "CommandParser.h"
 #include <iostream>
@@ -20,6 +21,10 @@ void Shell::RegisterBuiltins() {
 
     // SYSINFO COMMAND
     CommandRegistry::Instance().Register("sysinfo", std::make_unique<SysInfoCommand>());
+
+    // NETINFO COMMAND
+    CommandRegistry::Instance().Register("netinfo", std::make_unique<NetInfoCommand>());
+
 }
 
 void Shell::Start() {
