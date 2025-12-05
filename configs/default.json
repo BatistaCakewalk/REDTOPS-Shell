@@ -1,0 +1,13 @@
+{
+"shell": {
+"name": "REDTOPS",
+"version": "0.1",
+"prompt": "RT> "
+},
+"theme": "assets/themes/default_theme.json",
+"modules": {
+"network": true,
+"filesystem": false,
+"scripting": false
+}
+}

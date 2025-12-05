@@ -1,0 +1,8 @@
+{
+"name": "neon-default",
+"foreground": "#00FF99",
+"accent": "#00A3FF",
+"background": "#0B0B0B",
+"prompt_color": "#FFFFFF",
+"boot_delay_ms": 400
+}
