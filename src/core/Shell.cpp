@@ -1,4 +1,5 @@
 #include "Shell.h"
+#include "../commands/ping.hpp"
 #include "CommandRegistry.h"
 #include "CommandParser.h"
 #include <iostream>
@@ -12,6 +13,9 @@ Shell::~Shell() {
 
 void Shell::RegisterBuiltins() {
     // Already registered via static lambdas in commands
+
+    // PING COMMAND
+    CommandRegistry::Instance().Register("ping", std::make_unique<PingCommand>());
 }
 
 void Shell::Start() {
@@ -28,10 +32,14 @@ void Shell::Start() {
 
     // Set the prompt
     renderer_.SetPrompt("RT> ");
-    running_ = true;
 
+    // Register commands before starting loop
+    RegisterBuiltins();
+
+    running_ = true;
     MainLoop();
 }
+
 
 void Shell::Stop() {
     running_ = false;
