@@ -1,9 +1,18 @@
 #include "../headers/netinfo.hpp"
 #include "../../core/header/TerminalRenderer.hpp"
-#include <ifaddrs.h>
-#include <net/if.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
+
+// ===== Platform-Specific Includes =====
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <iphlpapi.h>
+    #pragma comment(lib, "iphlpapi.lib")
+#else
+    #include <ifaddrs.h>
+    #include <net/if.h>
+    #include <arpa/inet.h>
+    #include <netinet/in.h>
+#endif
+
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -44,6 +53,10 @@ void NetInfoCommand::Execute(const std::vector<std::string>& args) {
     if (show_interfaces) {
         term.PrintLine("\033[1;34m=== Network Interfaces ===\033[0m");
 
+#ifndef _WIN32
+        // =========================
+        // LINUX IMPLEMENTATION
+        // =========================
         struct ifaddrs* ifaddr;
         if (getifaddrs(&ifaddr) == -1) {
             term.PrintLine("Failed to retrieve network interfaces.");
@@ -104,24 +117,84 @@ void NetInfoCommand::Execute(const std::vector<std::string>& args) {
             }
             freeifaddrs(ifaddr);
         }
+
+#else
+        // =========================
+        // WINDOWS IMPLEMENTATION
+        // =========================
+        ULONG bufLen = 15000;
+        std::vector<char> buffer(bufLen);
+        IP_ADAPTER_ADDRESSES* addrs = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data());
+
+        if (GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, nullptr, addrs, &bufLen) == NO_ERROR) {
+            for (IP_ADAPTER_ADDRESSES* it = addrs; it != nullptr; it = it->Next) {
+                term.PrintLine("Interface: " + std::string(it->AdapterName));
+
+                // IPv4 + IPv6
+                IP_ADAPTER_UNICAST_ADDRESS* ua = it->FirstUnicastAddress;
+                if (!ua) {
+                    term.PrintLine("  IPv4: N/A");
+                    term.PrintLine("  IPv6: N/A");
+                } else {
+                    bool shownV4 = false, shownV6 = false;
+                    while (ua) {
+                        char buf[128];
+                        getnameinfo(ua->Address.lpSockaddr,
+                                    ua->Address.iSockaddrLength,
+                                    buf, sizeof(buf),
+                                    nullptr, 0, NI_NUMERICHOST);
+
+                        if (ua->Address.lpSockaddr->sa_family == AF_INET && !shownV4) {
+                            term.PrintLine("  IPv4: " + std::string(buf));
+                            shownV4 = true;
+                        }
+                        if (ua->Address.lpSockaddr->sa_family == AF_INET6 && !shownV6) {
+                            term.PrintLine("  IPv6: " + std::string(buf));
+                            shownV6 = true;
+                        }
+                        ua = ua->Next;
+                    }
+                }
+
+                // MAC Address
+                std::ostringstream mac;
+                for (UINT i = 0; i < it->PhysicalAddressLength; i++) {
+                    mac << std::hex << std::setw(2) << std::setfill('0') << (int)it->PhysicalAddress[i];
+                    if (i < it->PhysicalAddressLength - 1) mac << ":";
+                }
+                term.PrintLine("  MAC : " + mac.str());
+
+                if (verbose) {
+                    term.PrintLine("  MTU : " + std::to_string(it->Mtu));
+                }
+
+                term.PrintLine("");
+            }
+        } else {
+            term.PrintLine("Failed to retrieve Windows network adapters.");
+        }
+#endif
     }
 
     // ===== Routes =====
     if (show_routes) {
         term.PrintLine("\033[1;34m=== Routing Table ===\033[0m");
+
+#ifndef _WIN32
+        // Linux route parsing
         std::ifstream route_file("/proc/net/route");
         std::string line;
         int lineno = 0;
         while (std::getline(route_file, line)) {
             lineno++;
-            if (lineno == 1) continue; // skip header
+            if (lineno == 1) continue;
             std::istringstream iss(line);
             std::string iface, dest_hex, gateway_hex;
             int flags, refcnt, use, metric, mask_hex;
             if (!(iss >> iface >> dest_hex >> gateway_hex >> std::hex >> flags >> refcnt >> use >> metric >> mask_hex))
                 continue;
 
-            if (dest_hex == "00000000") { // default gateway
+            if (dest_hex == "00000000") {
                 unsigned long gw = std::stoul(gateway_hex, nullptr, 16);
                 std::ostringstream oss;
                 oss << ((gw & 0xFF)) << "." << ((gw >> 8) & 0xFF) << "."
@@ -129,6 +202,10 @@ void NetInfoCommand::Execute(const std::vector<std::string>& args) {
                 term.PrintLine("Default Gateway: " + oss.str() + " via " + iface);
             }
         }
+#else
+        // Windows fallback (not removing logic, just adding minimal support)
+        term.PrintLine("Routing table view is not implemented on Windows yet.");
+#endif
     }
 
     // ===== Connectivity Check =====
@@ -137,7 +214,12 @@ void NetInfoCommand::Execute(const std::vector<std::string>& args) {
             term.PrintLine("\033[1;34m=== Checking Connectivity ===\033[0m");
             term.PrintLine("Pinging " + host + " ...");
 
+#ifndef _WIN32
             FILE* pipe = popen(("ping -c 1 " + host).c_str(), "r");
+#else
+            FILE* pipe = _popen(("ping -n 1 " + host).c_str(), "r");
+#endif
+
             if (!pipe) {
                 term.PrintLine("Failed to execute ping.");
                 continue;
@@ -148,10 +230,16 @@ void NetInfoCommand::Execute(const std::vector<std::string>& args) {
             while (fgets(buffer, sizeof(buffer), pipe)) {
                 std::string line(buffer);
                 if (line.find("1 received") != std::string::npos ||
-                    line.find("1 packets received") != std::string::npos)
+                    line.find("TTL=") != std::string::npos)
                     reachable = true;
             }
+
+#ifndef _WIN32
             pclose(pipe);
+#else
+            _pclose(pipe);
+#endif
+
             term.PrintLine(host + (reachable ? " is reachable." : " is not reachable."));
         }
     }

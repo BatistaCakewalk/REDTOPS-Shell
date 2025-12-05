@@ -1,4 +1,4 @@
-#include "../header/CommandRegistry.h"
+#include "header/CommandRegistry.h"
 #include <algorithm>
 
 
