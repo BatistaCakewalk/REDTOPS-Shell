@@ -1,5 +1,5 @@
 #include "../headers/netinfo.hpp"
-#include "../../core/TerminalRenderer.hpp"
+#include "../../core/header/TerminalRenderer.hpp"
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <arpa/inet.h>

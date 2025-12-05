@@ -1,5 +1,5 @@
 #pragma once
-#include "../../core/CommandRegistry.h"
+#include "../../core/header/CommandRegistry.h"
 #include <vector>
 #include <string>
 

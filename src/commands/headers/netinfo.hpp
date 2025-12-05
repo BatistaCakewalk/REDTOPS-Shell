@@ -1,6 +1,6 @@
 // netinfo.hpp
 #pragma once
-#include "../../core/Command.h"
+#include "../../core/header/Command.h"
 #include <vector>
 #include <string>
 

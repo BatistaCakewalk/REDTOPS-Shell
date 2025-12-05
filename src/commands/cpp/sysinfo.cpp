@@ -1,5 +1,5 @@
 #include "../headers/sysinfo.hpp"
-#include "../../core/TerminalRenderer.hpp"
+#include "../../core/header/TerminalRenderer.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>

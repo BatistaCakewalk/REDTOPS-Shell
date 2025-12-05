@@ -1,5 +1,5 @@
 #pragma once
-#include "../../core/Command.h"
+#include "../../core/header/Command.h"
 
 class ClearCommand : public Command {
 public:

@@ -1,9 +1,9 @@
-#include "Shell.h"
-#include "../commands/headers/ping.hpp"
-#include "../commands/headers/sysinfo.hpp"
-#include "../commands/headers/netinfo.hpp"
-#include "CommandRegistry.h"
-#include "CommandParser.h"
+#include "../header/Shell.h"
+#include "../../commands/headers/ping.hpp"
+#include "../../commands/headers/sysinfo.hpp"
+#include "../../commands/headers/netinfo.hpp"
+#include "../header/CommandRegistry.h"
+#include "../header/CommandParser.h"
 #include <iostream>
 #include <fstream>
 

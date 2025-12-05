@@ -1,5 +1,5 @@
-#include "core/Shell.h"
-#include "core/CommandRegistry.h"
+#include "core/header/Shell.h"
+#include "core/header/CommandRegistry.h"
 #include <memory>
 
 

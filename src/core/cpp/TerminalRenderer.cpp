@@ -1,4 +1,4 @@
-#include "TerminalRenderer.h"
+#include "../header/TerminalRenderer.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
