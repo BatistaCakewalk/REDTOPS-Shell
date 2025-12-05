@@ -1,5 +1,6 @@
 #include "Shell.h"
 #include "../commands/headers/ping.hpp"
+#include "../commands/headers/sysinfo.hpp"
 #include "CommandRegistry.h"
 #include "CommandParser.h"
 #include <iostream>
@@ -16,6 +17,9 @@ void Shell::RegisterBuiltins() {
 
     // PING COMMAND
     CommandRegistry::Instance().Register("ping", std::make_unique<PingCommand>());
+
+    // SYSINFO COMMAND
+    CommandRegistry::Instance().Register("sysinfo", std::make_unique<SysInfoCommand>());
 }
 
 void Shell::Start() {
