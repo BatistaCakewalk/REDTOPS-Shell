@@ -1,5 +1,5 @@
 #include "Shell.h"
-#include "../commands/ping.hpp"
+#include "../commands/headers/ping.hpp"
 #include "CommandRegistry.h"
 #include "CommandParser.h"
 #include <iostream>

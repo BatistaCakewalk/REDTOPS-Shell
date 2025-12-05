@@ -1,5 +1,5 @@
-#include "ping.hpp"
-#include "../core/TerminalRenderer.hpp"
+#include "../headers/ping.hpp"
+#include "../../core/TerminalRenderer.hpp"
 #include <thread>
 #include <chrono>
 #include <iostream>
