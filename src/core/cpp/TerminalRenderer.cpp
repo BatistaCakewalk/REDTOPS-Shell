@@ -15,8 +15,13 @@ void TerminalRenderer::Init() {
 
 
 void TerminalRenderer::Clear() {
-    // ANSI clear (works on most terminals)
-    std::cout << "\x1b[2J\x1b[H";
+#ifdef _WIN32
+    // Windows cmd/powershell: use system call to clear screen
+    system("cls");
+#else
+    // ANSI clear for Unix-like terminals
+    std::cout << "\x1b[2J\x1b[H" << std::flush;
+#endif
 }
 
 
@@ -35,9 +40,23 @@ void TerminalRenderer::SetPrompt(const std::string& p) {
 }
 
 
+
 void TerminalRenderer::DrawBootScreen(const std::string& boottxt) {
-    Clear();
-    std::cout << boottxt << std::endl;
-    // small pause to emulate boot
+//     // 1️⃣ Clear the screen safely
+// #ifdef _WIN32
+//     system("cls"); // Windows
+// #else
+//     std::cout << "\x1b[2J\x1b[H" << std::flush; // Unix-like
+// #endif
+
+    // 2️⃣ Print each line separately to avoid terminal issues
+    std::istringstream iss(boottxt);
+    std::string line;
+    while (std::getline(iss, line)) {
+        std::cout << line << std::endl; // endl flushes automatically
+        std::this_thread::sleep_for(std::chrono::milliseconds(10)); // optional line-by-line effect
+    }
+
+    // 3️⃣ Final pause to emulate boot
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 }

@@ -6,6 +6,9 @@
 #include "../header/CommandParser.h"
 #include <iostream>
 #include <fstream>
+#include <thread>
+#include <chrono>
+
 
 Shell::Shell() : running_(false) {
 }
@@ -30,19 +33,25 @@ void Shell::RegisterBuiltins() {
 void Shell::Start() {
     renderer_.Init();
 
-    // Draw boot screen
-    std::ifstream f("assets/screens/boot.txt");
+    // Read boot screen file
+    std::ifstream f("../assets/screens/boot.txt", std::ios::binary);
     std::string boot;
-    if (f) {
-        std::string line;
-        while (std::getline(f, line)) { boot += line + "\n"; }
+    if (!f) {
+        std::cerr << "ERROR: Could not open boot.txt" << std::endl;
+    } else {
+        boot.assign((std::istreambuf_iterator<char>(f)),
+                     std::istreambuf_iterator<char>());
     }
+
+    // Draw the boot screen
     renderer_.DrawBootScreen(boot);
 
-    // Set the prompt
-    renderer_.SetPrompt("RT> ");
+    // Force flush to ensure output appears before MainLoop
+    std::cout << std::flush;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // small delay for terminal
 
-    // Register commands before starting loop
+    // Set prompt and register commands
+    renderer_.SetPrompt("RT> ");
     RegisterBuiltins();
 
     running_ = true;
