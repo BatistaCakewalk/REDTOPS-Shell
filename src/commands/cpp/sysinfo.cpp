@@ -27,6 +27,7 @@
 #endif
 
 
+
 void SysInfoCommand::Execute(const std::vector<std::string>& args) {
     bool show_all = true;
     bool show_cpu = false;

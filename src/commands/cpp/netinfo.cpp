@@ -4,13 +4,25 @@
 // ===== Platform-Specific Includes =====
 #ifdef _WIN32
     #include <winsock2.h>
+    #include <ws2tcpip.h>
     #include <iphlpapi.h>
     #pragma comment(lib, "iphlpapi.lib")
+    #pragma comment(lib, "ws2_32.lib")
+
+    // ---------- ifaddrs emulation (minimal) ----------
+    struct ifaddrs {
+        struct ifaddrs* ifa_next;
+        char* ifa_name;
+        unsigned int ifa_flags;
+        sockaddr* ifa_addr;
+    };
+inline int getifaddrs(struct ifaddrs**) { return -1; }
+inline void freeifaddrs(struct ifaddrs*) {}
 #else
-    #include <ifaddrs.h>
-    #include <net/if.h>
-    #include <arpa/inet.h>
-    #include <netinet/in.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #endif
 
 #include <fstream>
@@ -21,6 +33,7 @@
 #include <set>
 #include <cstdlib>
 #include <iomanip>
+
 
 void NetInfoCommand::Execute(const std::vector<std::string>& args) {
     TerminalRenderer& term = TerminalRenderer::Instance();
