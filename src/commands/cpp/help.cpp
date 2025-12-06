@@ -3,18 +3,76 @@
 #include "../../core/header/CommandRegistry.h"
 #include <memory>
 #include <iostream>
+#include <unordered_map>
+#include <map>
+#include <vector>
+
+// Command metadata including description, category, and usage example
+struct CommandMeta {
+    std::string description;
+    std::string category;
+    std::string usage;
+};
+
+// Define metadata for each command
+static std::unordered_map<std::string, CommandMeta> command_metadata = {
+    {"ping",     {"Check connectivity to a host", "Network", "ping 8.8.8.8"}},
+    {"netinfo",  {"Display network info", "Network", "netinfo"}},
+    {"sysinfo",  {"Display system information", "System", "sysinfo"}},
+    {"clear",    {"Clear the terminal screen", "Built-in", "clear"}},
+    {"exit",     {"Exit the shell", "Built-in", "exit"}},
+    {"help",     {"Show this help message", "Built-in", "help [command]"}}
+};
+
+// ANSI color codes
+constexpr const char* COLOR_RESET = "\033[0m";
+constexpr const char* COLOR_YELLOW = "\033[33m";
+constexpr const char* COLOR_CYAN = "\033[36m";
 
 std::string HelpCommand::Name() const {
     return "help";
 }
 
-void HelpCommand::Execute(const std::vector<std::string>&) {
+void HelpCommand::Execute(const std::vector<std::string>& args) {
     auto& registry = CommandRegistry::Instance();
     auto& renderer = TerminalRenderer::Instance();
 
-    renderer.PrintLine("Available commands:");
+    if (!args.empty()) {
+        // Show detailed help for a specific command
+        auto* cmd = registry.Get(args[0]);
+        if (cmd) {
+            renderer.PrintLine(std::string(COLOR_YELLOW) + "Help for command: " + args[0] + COLOR_RESET);
+            auto it = command_metadata.find(args[0]);
+            if (it != command_metadata.end()) {
+                renderer.PrintLine("  Category: " + std::string(COLOR_CYAN) + it->second.category + COLOR_RESET);
+                renderer.PrintLine("  Description: " + it->second.description);
+                renderer.PrintLine("  Usage: " + it->second.usage);
+            } else {
+                renderer.PrintLine("  No additional info available.");
+            }
+        } else {
+            renderer.PrintLine("Unknown command: " + args[0]);
+        }
+        return;
+    }
+
+    // General help: group commands by category
+    std::map<std::string, std::vector<std::string>> categorized;
     for (auto& cmdName : registry.GetCommandList()) {
-        renderer.PrintLine(" - " + cmdName);
+        std::string category = "Uncategorized";
+        auto it = command_metadata.find(cmdName);
+        if (it != command_metadata.end()) category = it->second.category;
+        categorized[category].push_back(cmdName);
+    }
+
+    renderer.PrintLine("Available commands:");
+    for (auto& [category, cmds] : categorized) {
+        renderer.PrintLine("\n" + std::string(COLOR_CYAN) + "[" + category + "]" + COLOR_RESET);
+        for (auto& cmd : cmds) {
+            auto it = command_metadata.find(cmd);
+            std::string desc = (it != command_metadata.end()) ? " - " + it->second.description : "";
+            renderer.PrintLine(std::string(COLOR_YELLOW) + cmd + COLOR_RESET + desc);
+        }
     }
 }
 

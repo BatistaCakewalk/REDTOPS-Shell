@@ -42,14 +42,14 @@ void TerminalRenderer::SetPrompt(const std::string& p) {
 
 
 void TerminalRenderer::DrawBootScreen(const std::string& boottxt) {
-//     // 1️⃣ Clear the screen safely
+//     // Clear the screen safely
 // #ifdef _WIN32
 //     system("cls"); // Windows
 // #else
 //     std::cout << "\x1b[2J\x1b[H" << std::flush; // Unix-like
 // #endif
 
-    // 2️⃣ Print each line separately to avoid terminal issues
+    // Print each line separately to avoid terminal issues
     std::istringstream iss(boottxt);
     std::string line;
     while (std::getline(iss, line)) {
@@ -57,6 +57,6 @@ void TerminalRenderer::DrawBootScreen(const std::string& boottxt) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10)); // optional line-by-line effect
     }
 
-    // 3️⃣ Final pause to emulate boot
+    // Final pause to emulate boot
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 }
