@@ -22,8 +22,18 @@ file(GLOB_RECURSE REDTOPS_SOURCES
 # Create executable
 add_executable(redtops ${REDTOPS_SOURCES})
 
-# If you ever want to link libraries later (asio, ncurses, etc), they will go here:
-# target_link_libraries(redtops PRIVATE some_library)
+# --- PLATFORM NETWORKING FIX ---
+if (WIN32)
+    message(STATUS "Configuring networking for Windows...")
+    target_compile_definitions(redtops PRIVATE _WIN32_WINNT=0x0600)
+    target_link_libraries(redtops PRIVATE iphlpapi ws2_32)
+elseif(UNIX AND NOT APPLE)
+    message(STATUS "Configuring networking for Linux...")
+    target_compile_definitions(redtops PRIVATE _GNU_SOURCE)
+elseif(APPLE)
+    message(STATUS "Configuring networking for macOS...")
+endif()
+# --------------------------------
 
 # Copy assets to build folder automatically
 add_custom_command(TARGET redtops POST_BUILD
