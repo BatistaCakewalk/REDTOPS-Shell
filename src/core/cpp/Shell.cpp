@@ -204,6 +204,9 @@ void Shell::MainLoop() {
 
         input = ApplyAliases(input);
 
+        // <--- FIXEDBUG: reset cursor to column 0 before command output --->
+        std::cout << "\r\x1b[0K";  // moves to start of line & clears it
+
         { TempCookedMode guard;
             std::istringstream ss(input); std::string part;
             while (std::getline(ss, part, ';')) {
