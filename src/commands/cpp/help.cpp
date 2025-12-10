@@ -16,21 +16,30 @@ struct CommandMeta {
 
 // Define metadata for each command
 static std::unordered_map<std::string, CommandMeta> command_metadata = {
-    {"ping",     {"Check connectivity to a host", "Network", "ping 8.8.8.8"}},
-    {"netinfo",  {"Display network info", "Network", "netinfo"}},
-    {"sysinfo",  {"Display system information", "System", "sysinfo"}},
-    {"clear",    {"Clear the terminal screen", "Built-in", "clear"}},
-    {"exit",     {"Exit the shell", "Built-in", "exit"}},
+    // ---------------- Built-in commands ----------------
     {"help",     {"Show this help message", "Built-in", "help [command]"}},
-    {"cd",       {"Change paths", "Built-in", "cd [PATH]"}},
+    {"exit",     {"Exit the shell", "Built-in", "exit"}},
+    {"clear",    {"Clear the terminal screen", "Built-in", "clear"}},
+    {"cd",       {"Change current directory", "Built-in", "cd [PATH]"}},
     {"pwd",      {"Print working directory", "Built-in", "pwd"}},
-    {"ls",       {"List directory contents", "Built-in", "ls [options] [PATH]"}},
-    {"cat",      {"Display file contents", "Built-in", "cat <file>"}},
-    {"mkdir",    {"Create directories", "Built-in", "mkdir <dir>"}},
-    {"rm",       {"Remove files or directories", "Built-in", "rm <file/dir>"}},
-    {"cp",       {"Copy files or directories", "Built-in", "cp [-r] <source> <dest>"}},
-    {"mv",       {"Move/rename files or directories", "Built-in", "mv <source> <dest>"}}
+
+    // ---------------- Filesystem commands ----------------
+    {"ls",       {"List files and directories", "Filesystem", "ls [-a] [-l] [PATH]"}},
+    {"cat",      {"Display file contents", "Filesystem", "cat <file>"}},
+    {"mkdir",    {"Create directories", "Filesystem", "mkdir <dir>"}},
+    {"rm",       {"Remove files or directories", "Filesystem", "rm [-r] <file|dir>"}},
+    {"cp",       {"Copy files or directories", "Filesystem", "cp [-r] <source> <dest>"}},
+    {"mv",       {"Move or rename files/directories", "Filesystem", "mv <source> <dest>"}},
+
+    // ---------------- Network commands ----------------
+    {"ping",     {"Check connectivity to a host", "Network", "ping 8.8.8.8"}},
+    {"netinfo",  {"Display network information", "Network", "netinfo"}},
+    {"sysinfo",  {"Display system information", "Network", "sysinfo"}},
+    {"trace",    {"Perform a traceroute to a host", "Network", "trace <host>"}},
+    {"netscan",  {"Scan local subnet for live hosts", "Network", "netscan [subnet]"}},
+    {"portscan", {"Scan ports on a host", "Network", "portscan <host> [start_port] [end_port]"}}
 };
+
 
 // ANSI color codes
 constexpr const char* COLOR_RESET = "\033[0m";

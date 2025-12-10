@@ -4,6 +4,9 @@
 #include "../../commands/headers/netinfo.hpp"
 #include "../../commands/headers/exit.hpp"
 #include "../../commands/headers/fs_commands.hpp"
+#include "../../commands/headers/trace.hpp"
+#include "../../commands/headers/portscan.hpp"
+#include "../../commands/headers/netscan.hpp"
 #include "../header/CommandRegistry.h"
 #include "../header/CommandParser.h"
 #include <iostream>
@@ -15,40 +18,66 @@
 #include <unistd.h>
 #include <algorithm>
 #include <filesystem>
+#include <signal.h>
+#include <cstring>
+#include <sys/ioctl.h>
 
-// Simple getch() for Unix terminals
-static char GetChar() {
-    struct termios oldt, newt;
-    char ch;
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO); // disable canonical mode and echo
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    ch = getchar();
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    return ch;
-}
+// Editor note: fully fixed the ghost line/prompt doubling bug
 
-Shell::Shell() : running_(false), history_index_(-1) {}
-Shell::~Shell() {}
+static struct termios orig_termios;
+static bool raw_enabled = false;
 
-// Returns the current prompt string with dynamic path
-std::string Shell::GetPromptString() const {
-    try {
-        auto cwd = std::filesystem::current_path();
-        return "REDTOPS | " + cwd.string() + "> ";
-    } catch (const std::filesystem::filesystem_error&) {
-        return "REDTOPS | ? > ";
+static void DisableRawMode() {
+    if (raw_enabled) {
+        tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
+        raw_enabled = false;
     }
 }
 
-// Already injected ClearCommand and other builtins
+static bool EnableRawMode() {
+    if (raw_enabled) return true;
+    if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) return false;
+    struct termios raw = orig_termios;
+    raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+    raw.c_iflag &= ~(IXON | ICRNL | BRKINT | INPCK | ISTRIP);
+    raw.c_oflag &= ~(OPOST);
+    raw.c_cflag |= (CS8);
+    raw.c_cc[VMIN] = 1;
+    raw.c_cc[VTIME] = 0;
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) == -1) return false;
+    raw_enabled = true;
+    return true;
+}
+
+static char ReadByte() {
+    char c = 0;
+    ssize_t n = read(STDIN_FILENO, &c, 1);
+    if (n <= 0) return 0;
+    return c;
+}
+
+struct TempCookedMode {
+    bool had_raw;
+    TempCookedMode() { had_raw = raw_enabled; if (had_raw) DisableRawMode(); }
+    ~TempCookedMode() { if (had_raw) EnableRawMode(); }
+};
+
+Shell::Shell() : running_(false), history_index_(-1) {}
+Shell::~Shell() { DisableRawMode(); }
+
+std::string Shell::GetPromptString() const {
+    try { return "REDTOPS | " + std::filesystem::current_path().string() + "> "; }
+    catch (...) { return "REDTOPS | ? > "; }
+}
+
 void Shell::RegisterBuiltins() {
     CommandRegistry::Instance().Register("ping", std::make_unique<PingCommand>());
     CommandRegistry::Instance().Register("sysinfo", std::make_unique<SysInfoCommand>());
     CommandRegistry::Instance().Register("netinfo", std::make_unique<NetInfoCommand>());
+    CommandRegistry::Instance().Register("trace", std::make_unique<TraceCommand>());
+    CommandRegistry::Instance().Register("netscan", std::make_unique<NetScanCommand>());
+    CommandRegistry::Instance().Register("portscan", std::make_unique<PortScanCommand>());
     CommandRegistry::Instance().Register("exit", std::make_unique<ExitCommand>(this));
-
     CommandRegistry::Instance().Register("pwd", std::make_unique<PwdCommand>());
     CommandRegistry::Instance().Register("cd", std::make_unique<CdCommand>());
     CommandRegistry::Instance().Register("ls", std::make_unique<LsCommand>());
@@ -60,9 +89,7 @@ void Shell::RegisterBuiltins() {
 
     class ClearCommand : public Command {
     public:
-        void Execute(const std::vector<std::string>&) override {
-            TerminalRenderer::Instance().Clear();
-        }
+        void Execute(const std::vector<std::string>&) override { TerminalRenderer::Instance().Clear(); }
         std::string Name() const override { return "clear"; }
     };
     CommandRegistry::Instance().Register("clear", std::make_unique<ClearCommand>());
@@ -70,130 +97,128 @@ void Shell::RegisterBuiltins() {
 
 void Shell::Start() {
     renderer_.Init();
-
-    // Boot screen
     std::ifstream f("../assets/screens/boot.txt", std::ios::binary);
     std::string boot;
-    if (f) {
-        boot.assign((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-    }
+    if (f) boot.assign((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     renderer_.DrawBootScreen(boot);
-
     std::cout << std::flush;
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
     RegisterBuiltins();
-
+    EnableRawMode();
     running_ = true;
     MainLoop();
+    DisableRawMode();
 }
 
-void Shell::Stop() {
-    running_ = false;
-}
+void Shell::Stop() { running_ = false; }
 
 std::string Shell::ApplyAliases(const std::string& input) {
     auto tokens = CommandParser::Tokenize(input);
     if (tokens.empty()) return input;
     if (aliases_.count(tokens[0])) {
         tokens[0] = aliases_[tokens[0]];
-        std::string replaced;
-        for (auto& t : tokens) replaced += t + " ";
-        return replaced;
+        std::string out;
+        for (auto& t : tokens) out += t + " ";
+        return out;
     }
     return input;
 }
 
-// ------------------- Tab completion -------------------
 std::string Shell::TabComplete(const std::string& prefix) {
     auto commands = CommandRegistry::Instance().GetCommandList();
     std::vector<std::string> matches;
-    for (auto& cmd : commands) {
-        if (cmd.find(prefix) == 0) matches.push_back(cmd);
-    }
+    for (auto& cmd : commands)
+        if (cmd.rfind(prefix, 0) == 0)
+            matches.push_back(cmd);
     if (matches.empty()) return prefix;
-    if (matches.size() == 1) return matches[0]; // unique match
-    // multiple matches: just return prefix for now
+    if (matches.size() == 1) return matches[0];
     TerminalRenderer::Instance().PrintLine("\nPossible matches:");
     for (auto& m : matches) TerminalRenderer::Instance().PrintLine("  " + m);
     return prefix;
 }
 
-// ------------------- MainLoop -------------------
 void Shell::MainLoop() {
     std::string input;
+
+    auto redraw = [&](const std::string& s) {
+        std::cout << "\r" << "\x1b[2K" << GetPromptString() << s << std::flush;
+    };
+
     while (running_) {
         input.clear();
-        std::cout << GetPromptString();
-        char ch;
+        redraw(input);
 
         while (true) {
-            ch = GetChar();
+            char ch = ReadByte();
+            if (ch == 0) continue;
 
-            if (ch == '\n') { // Enter
+            if (ch == '\r' || ch == '\n') {
                 std::cout << "\n";
                 break;
-            } else if (ch == 127 || ch == '\b') { // Backspace
-                if (!input.empty()) {
-                    input.pop_back();
-                    std::cout << "\b \b" << std::flush;
-                }
-            } else if (ch == '\t') { // Tab
+            } 
+            else if (ch == 127 || ch == '\b') {
+                if (!input.empty()) { input.pop_back(); redraw(input); }
+            } 
+            else if (ch == '\t') {
                 input = TabComplete(input);
-                std::cout << "\r" << GetPromptString() << input << std::flush;
-            } else if (ch == 27) { // Escape sequences (arrows)
-                char seq1 = GetChar();
-                char seq2 = GetChar();
-                if (seq1 == '[') {
-                    if (seq2 == 'A') { // Up arrow
-                        if (!history_.empty() && history_index_ > 0) {
-                            history_index_--;
+                redraw(input);
+            } 
+            else if (ch == 3) {
+                std::cout << "^C\n";
+                input.clear();
+                redraw(input);
+            } 
+            else if (ch == 4) {
+                std::cout << "\n";
+                Stop();
+                break;
+            } 
+            else if (ch == 27) {
+                char s1 = ReadByte(); if (s1 == 0) continue;
+                char s2 = ReadByte(); if (s2 == 0) continue;
+                if (s1 == '[') {
+                    if (s2 == 'A') {
+                        if (!history_.empty()) {
+                            if (history_index_ == -1) history_index_ = history_.size();
+                            if (history_index_ > 0) history_index_--;
                             input = history_[history_index_];
-                            std::cout << "\r" << GetPromptString() << input
-                                      << std::string(50, ' ') << "\r" << GetPromptString() << input << std::flush;
+                            redraw(input);
                         }
-                    } else if (seq2 == 'B') { // Down arrow
-                        if (!history_.empty() && history_index_ + 1 < history_.size()) {
-                            history_index_++;
-                            input = history_[history_index_];
-                        } else {
-                            input.clear();
-                            history_index_ = history_.size();
+                    } else if (s2 == 'B') {
+                        if (!history_.empty()) {
+                            if (history_index_ == -1) history_index_ = history_.size();
+                            if (history_index_ + 1 < (int)history_.size()) { history_index_++; input = history_[history_index_]; }
+                            else { history_index_ = history_.size(); input.clear(); }
+                            redraw(input);
                         }
-                        std::cout << "\r" << GetPromptString() << input
-                                  << std::string(50, ' ') << "\r" << GetPromptString() << input << std::flush;
                     }
                 }
-            } else {
-                input += ch;
+            } 
+            else if (isprint(static_cast<unsigned char>(ch))) {
+                input.push_back(ch);
                 std::cout << ch << std::flush;
             }
         }
 
-        // Apply aliases
+        if (!running_) break;
+
         input = ApplyAliases(input);
 
-        // Multi-command execution
-        std::istringstream cmdstream(input);
-        std::string singlecmd;
-        while (std::getline(cmdstream, singlecmd, ';')) {
-            auto tokens = CommandParser::Tokenize(singlecmd);
-            if (tokens.empty()) continue;
-
-            auto* cmd = CommandRegistry::Instance().Get(tokens[0]);
-            if (!cmd) {
-                renderer_.PrintLine("Unknown command: " + tokens[0]);
-                continue;
+        { TempCookedMode guard;
+            std::istringstream ss(input); std::string part;
+            while (std::getline(ss, part, ';')) {
+                auto tokens = CommandParser::Tokenize(part);
+                if (tokens.empty()) continue;
+                auto* cmd = CommandRegistry::Instance().Get(tokens[0]);
+                if (!cmd) { renderer_.PrintLine("Unknown command: " + tokens[0]); continue; }
+                tokens.erase(tokens.begin());
+                cmd->Execute(tokens);
             }
-            tokens.erase(tokens.begin());
-            cmd->Execute(tokens);
+            std::cout << std::flush;
         }
 
-        // Add to history
-        if (!input.empty()) {
-            history_.push_back(input);
-            history_index_ = history_.size();
-        }
+        if (!input.empty()) { history_.push_back(input); history_index_ = history_.size(); }
+        else { history_index_ = history_.size(); }
     }
 }
 

@@ -1,7 +1,7 @@
 {
   "shell": {
     "name": "REDTOPS",
-    "version": "0.3",
+    "version": "0.4",
     "prompt": "RT> "
   },
   "theme": "assets/themes/default_theme.json",
@@ -11,4 +11,3 @@
     "scripting": false
   }
 }
-

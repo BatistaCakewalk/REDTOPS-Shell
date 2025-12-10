@@ -10,46 +10,18 @@
 #include <cmath>
 #include <cstdlib>
 #include <sstream>
-#include <fstream>
+#include <cstdio>
 
 PingCommand::PingCommand() {}
-
-// Helper to resolve host to IP
-std::string ResolveHost(const std::string& host) {
-    std::string cmd = "getent hosts " + host + " | awk '{ print $1 }' > /tmp/redtops_ip.txt";
-    system(cmd.c_str());
-    std::ifstream f("/tmp/redtops_ip.txt");
-    std::string ip;
-    if (f) std::getline(f, ip);
-    return ip.empty() ? host : ip;
-}
-
-// Helper to fetch GeoIP using ip-api.com
-std::string GeoIPLookup(const std::string& ip) {
-    std::string cmd = "curl -s http://ip-api.com/line/" + ip + "?fields=country,regionName,city | tr '\\n' ',' | sed 's/,$//' > /tmp/redtops_geo.txt";
-    system(cmd.c_str());
-    std::ifstream f("/tmp/redtops_geo.txt");
-    std::string geo;
-    if (f) std::getline(f, geo);
-    return geo.empty() ? "Unknown Location" : geo;
-}
 
 void PingCommand::Execute(const std::vector<std::string>& args) {
     if (args.empty()) {
         TerminalRenderer::Instance().PrintLine("Usage: ping [options] <host1> <host2> ...");
-        TerminalRenderer::Instance().PrintLine("Options:");
-        TerminalRenderer::Instance().PrintLine("  -C       Continuous ping");
-        TerminalRenderer::Instance().PrintLine("  -6       IPv6 mode");
-        TerminalRenderer::Instance().PrintLine("  -g       GeoIP lookup");
-        TerminalRenderer::Instance().PrintLine("  -v       Verbose output");
+        TerminalRenderer::Instance().PrintLine("Options: -C Continuous, -6 IPv6, -g GeoIP, -v Verbose");
         return;
     }
 
-    // Parse flags
-    bool continuous = false;
-    bool ipv6 = false;
-    bool geoip = false;
-    bool verbose = false;
+    bool continuous = false, ipv6 = false, geoip = false, verbose = false;
     std::vector<std::string> hosts;
 
     for (auto& arg : args) {
@@ -61,70 +33,88 @@ void PingCommand::Execute(const std::vector<std::string>& args) {
     }
 
     for (auto& host : hosts) {
+        TerminalRenderer::Instance().PrintLine("\n\033[1;34m=== Pinging " + host + " ===\033[0m");
+
+        std::string ip = host;
+
+        if (geoip) {
+            std::string geo_cmd = "curl -s http://ip-api.com/line/" + ip + "?fields=country,regionName,city | tr '\\n' ',' | sed 's/,$//'";
+            FILE* geo_pipe = popen(geo_cmd.c_str(), "r");
+            if (geo_pipe) {
+                char buf[256];
+                if (fgets(buf, sizeof(buf), geo_pipe)) {
+                    std::string geo(buf);
+                    geo.erase(std::remove(geo.begin(), geo.end(), '\n'), geo.end());
+                    TerminalRenderer::Instance().PrintLine("GeoIP: " + geo);
+                }
+                pclose(geo_pipe);
+            }
+        }
+
         std::vector<int> latencies;
         int sent = 0, received = 0;
 
-        TerminalRenderer::Instance().PrintLine("\n\033[1;34m=== Pinging " + host + " ===\033[0m");
-
-        std::string ip = ResolveHost(host);
-        TerminalRenderer::Instance().PrintLine("Resolved IP: " + ip);
-
-        if (geoip) {
-            std::string location = GeoIPLookup(ip);
-            TerminalRenderer::Instance().PrintLine("GeoIP: " + location);
-        }
-
         auto do_ping = [&]() {
-            for (int i = 0; i < 4 || continuous; ++i) {
+            int count = continuous ? 1 : 4;
+            for (int i = 0; i < count; ++i) {
                 auto start = std::chrono::high_resolution_clock::now();
 
                 std::string ping_cmd = "ping -c 1 ";
                 if (ipv6) ping_cmd += "-6 ";
-                ping_cmd += ip + " > /tmp/redtops_ping_output.txt 2>&1";
-                system(ping_cmd.c_str());
+                ping_cmd += ip + " 2>&1";
+
+                FILE* pipe = popen(ping_cmd.c_str(), "r");
+                if (!pipe) {
+                    TerminalRenderer::Instance().PrintLine("Failed to run ping command");
+                    continue;
+                }
+
+                char buffer[256];
+                while (fgets(buffer, sizeof(buffer), pipe)) {
+                    std::string line(buffer);
+                    line.erase(std::remove(line.begin(), line.end(), '\n'), line.end());
+                    if (!line.empty()) TerminalRenderer::Instance().PrintLine(line);
+                }
+                pclose(pipe);
 
                 auto end = std::chrono::high_resolution_clock::now();
                 int ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
                 latencies.push_back(ms);
                 ++sent;
-
-                std::stringstream reply;
-                reply << "Reply from " << ip << ": time=" << ms << "ms";
-                if (verbose) reply << " seq=" << i+1;
-                TerminalRenderer::Instance().PrintLine(reply.str());
-
                 ++received;
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-                if (continuous) break;  // temporary
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
             }
         };
 
         do_ping();
 
-        int min_latency = *std::min_element(latencies.begin(), latencies.end());
-        int max_latency = *std::max_element(latencies.begin(), latencies.end());
-        double avg_latency = std::accumulate(latencies.begin(), latencies.end(), 0.0) / latencies.size();
-        double variance = 0.0;
-        for (auto t : latencies) variance += (t - avg_latency) * (t - avg_latency);
-        double stddev = std::sqrt(variance / latencies.size());
+        if (!latencies.empty()) {
+            int min_latency = *std::min_element(latencies.begin(), latencies.end());
+            int max_latency = *std::max_element(latencies.begin(), latencies.end());
+            double avg_latency = std::accumulate(latencies.begin(), latencies.end(), 0.0) / latencies.size();
+            double variance = 0.0;
+            for (auto t : latencies) variance += (t - avg_latency) * (t - avg_latency);
+            double stddev = std::sqrt(variance / latencies.size());
 
-        TerminalRenderer::Instance().PrintLine("\n\033[1;36m--- Ping Statistics ---\033[0m");
-        TerminalRenderer::Instance().PrintLine("Host: " + host + " (" + ip + ")");
-        TerminalRenderer::Instance().PrintLine("Packets: Sent = " + std::to_string(sent) +
-                                                ", Received = " + std::to_string(received) +
-                                                ", Lost = " + std::to_string(sent - received));
-        TerminalRenderer::Instance().PrintLine("Latency (ms): min=" + std::to_string(min_latency) +
-                                                ", max=" + std::to_string(max_latency) +
-                                                ", avg=" + std::to_string(static_cast<int>(avg_latency)) +
-                                                ", stddev=" + std::to_string(static_cast<int>(stddev)));
+            TerminalRenderer::Instance().PrintLine("\n\033[1;36m--- Ping Statistics ---\033[0m");
+            TerminalRenderer::Instance().PrintLine("Host: " + host + " (" + ip + ")");
+            TerminalRenderer::Instance().PrintLine("Packets: Sent = " + std::to_string(sent) +
+                                                    ", Received = " + std::to_string(received) +
+                                                    ", Lost = " + std::to_string(sent - received));
+            TerminalRenderer::Instance().PrintLine("Latency (ms): min=" + std::to_string(min_latency) +
+                                                    ", max=" + std::to_string(max_latency) +
+                                                    ", avg=" + std::to_string(static_cast<int>(avg_latency)) +
+                                                    ", stddev=" + std::to_string(static_cast<int>(stddev)));
 
-        TerminalRenderer::Instance().PrintLine("Latency Graph:");
-        int max_bar = 20;
-        for (auto t : latencies) {
-            int bar_len = static_cast<int>((t - min_latency) / double(max_latency - min_latency + 1) * max_bar);
-            std::string bar(bar_len, '=');
-            TerminalRenderer::Instance().PrintLine("[" + bar + "] " + std::to_string(t) + "ms");
+            TerminalRenderer::Instance().PrintLine("Latency Graph:");
+            int max_bar = 20;
+            for (auto t : latencies) {
+                int bar_len = static_cast<int>((t - min_latency) / double(max_latency - min_latency + 1) * max_bar);
+                std::string bar(bar_len, '=');
+                TerminalRenderer::Instance().PrintLine("[" + bar + "] " + std::to_string(t) + "ms");
+            }
         }
     }
 }
+
