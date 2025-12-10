@@ -13,6 +13,9 @@ public:
     void Start();
     void Stop();
 
+    // --- Add this ---
+    std::string GetPromptString() const;
+
 private:
     bool running_ = false;
 
@@ -33,3 +36,4 @@ private:
     std::string ApplyAliases(const std::string& input); // replaces input with alias if exists
     std::string TabComplete(const std::string& prefix); // completes command names starting with prefix
 };
+

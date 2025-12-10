@@ -21,7 +21,15 @@ static std::unordered_map<std::string, CommandMeta> command_metadata = {
     {"sysinfo",  {"Display system information", "System", "sysinfo"}},
     {"clear",    {"Clear the terminal screen", "Built-in", "clear"}},
     {"exit",     {"Exit the shell", "Built-in", "exit"}},
-    {"help",     {"Show this help message", "Built-in", "help [command]"}}
+    {"help",     {"Show this help message", "Built-in", "help [command]"}},
+    {"cd",       {"Change paths", "Built-in", "cd [PATH]"}},
+    {"pwd",      {"Print working directory", "Built-in", "pwd"}},
+    {"ls",       {"List directory contents", "Built-in", "ls [options] [PATH]"}},
+    {"cat",      {"Display file contents", "Built-in", "cat <file>"}},
+    {"mkdir",    {"Create directories", "Built-in", "mkdir <dir>"}},
+    {"rm",       {"Remove files or directories", "Built-in", "rm <file/dir>"}},
+    {"cp",       {"Copy files or directories", "Built-in", "cp [-r] <source> <dest>"}},
+    {"mv",       {"Move/rename files or directories", "Built-in", "mv <source> <dest>"}}
 };
 
 // ANSI color codes

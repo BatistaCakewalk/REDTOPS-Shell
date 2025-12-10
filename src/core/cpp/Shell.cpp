@@ -3,6 +3,7 @@
 #include "../../commands/headers/sysinfo.hpp"
 #include "../../commands/headers/netinfo.hpp"
 #include "../../commands/headers/exit.hpp"
+#include "../../commands/headers/fs_commands.hpp"
 #include "../header/CommandRegistry.h"
 #include "../header/CommandParser.h"
 #include <iostream>
@@ -13,6 +14,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <algorithm>
+#include <filesystem>
 
 // Simple getch() for Unix terminals
 static char GetChar() {
@@ -27,9 +29,18 @@ static char GetChar() {
     return ch;
 }
 
-Shell::Shell() : running_(false), history_index_(0) {}
-
+Shell::Shell() : running_(false), history_index_(-1) {}
 Shell::~Shell() {}
+
+// Returns the current prompt string with dynamic path
+std::string Shell::GetPromptString() const {
+    try {
+        auto cwd = std::filesystem::current_path();
+        return "REDTOPS | " + cwd.string() + "> ";
+    } catch (const std::filesystem::filesystem_error&) {
+        return "REDTOPS | ? > ";
+    }
+}
 
 // Already injected ClearCommand and other builtins
 void Shell::RegisterBuiltins() {
@@ -37,6 +48,15 @@ void Shell::RegisterBuiltins() {
     CommandRegistry::Instance().Register("sysinfo", std::make_unique<SysInfoCommand>());
     CommandRegistry::Instance().Register("netinfo", std::make_unique<NetInfoCommand>());
     CommandRegistry::Instance().Register("exit", std::make_unique<ExitCommand>(this));
+
+    CommandRegistry::Instance().Register("pwd", std::make_unique<PwdCommand>());
+    CommandRegistry::Instance().Register("cd", std::make_unique<CdCommand>());
+    CommandRegistry::Instance().Register("ls", std::make_unique<LsCommand>());
+    CommandRegistry::Instance().Register("cat", std::make_unique<CatCommand>());
+    CommandRegistry::Instance().Register("mkdir", std::make_unique<MkdirCommand>());
+    CommandRegistry::Instance().Register("rm", std::make_unique<RmCommand>());
+    CommandRegistry::Instance().Register("cp", std::make_unique<CpCommand>());
+    CommandRegistry::Instance().Register("mv", std::make_unique<MvCommand>());
 
     class ClearCommand : public Command {
     public:
@@ -62,7 +82,6 @@ void Shell::Start() {
     std::cout << std::flush;
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    renderer_.SetPrompt("RT> ");
     RegisterBuiltins();
 
     running_ = true;
@@ -85,7 +104,7 @@ std::string Shell::ApplyAliases(const std::string& input) {
     return input;
 }
 
-// ------------------- New helper: Tab completion -------------------
+// ------------------- Tab completion -------------------
 std::string Shell::TabComplete(const std::string& prefix) {
     auto commands = CommandRegistry::Instance().GetCommandList();
     std::vector<std::string> matches;
@@ -100,12 +119,12 @@ std::string Shell::TabComplete(const std::string& prefix) {
     return prefix;
 }
 
-// ------------------- Updated MainLoop -------------------
+// ------------------- MainLoop -------------------
 void Shell::MainLoop() {
     std::string input;
     while (running_) {
         input.clear();
-        std::cout << renderer_.GetPrompt();
+        std::cout << GetPromptString();
         char ch;
 
         while (true) {
@@ -121,7 +140,7 @@ void Shell::MainLoop() {
                 }
             } else if (ch == '\t') { // Tab
                 input = TabComplete(input);
-                std::cout << "\r" << renderer_.GetPrompt() << input << std::flush;
+                std::cout << "\r" << GetPromptString() << input << std::flush;
             } else if (ch == 27) { // Escape sequences (arrows)
                 char seq1 = GetChar();
                 char seq2 = GetChar();
@@ -130,8 +149,8 @@ void Shell::MainLoop() {
                         if (!history_.empty() && history_index_ > 0) {
                             history_index_--;
                             input = history_[history_index_];
-                            std::cout << "\r" << renderer_.GetPrompt() << input
-                                      << std::string(50, ' ') << "\r" << renderer_.GetPrompt() << input << std::flush;
+                            std::cout << "\r" << GetPromptString() << input
+                                      << std::string(50, ' ') << "\r" << GetPromptString() << input << std::flush;
                         }
                     } else if (seq2 == 'B') { // Down arrow
                         if (!history_.empty() && history_index_ + 1 < history_.size()) {
@@ -141,8 +160,8 @@ void Shell::MainLoop() {
                             input.clear();
                             history_index_ = history_.size();
                         }
-                        std::cout << "\r" << renderer_.GetPrompt() << input
-                                  << std::string(50, ' ') << "\r" << renderer_.GetPrompt() << input << std::flush;
+                        std::cout << "\r" << GetPromptString() << input
+                                  << std::string(50, ' ') << "\r" << GetPromptString() << input << std::flush;
                     }
                 }
             } else {
@@ -177,3 +196,4 @@ void Shell::MainLoop() {
         }
     }
 }
+

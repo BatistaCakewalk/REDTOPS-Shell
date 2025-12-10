@@ -1,4 +1,5 @@
 #pragma once
+
 #include <string>
 
 
@@ -19,3 +20,4 @@ public:
 private:
     std::string prompt_;
 };
+
