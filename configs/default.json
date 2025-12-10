@@ -1,13 +1,14 @@
 {
-"shell": {
-"name": "REDTOPS",
-"version": "0.2.7",
-"prompt": "RT> "
-},
-"theme": "assets/themes/default_theme.json",
-"modules": {
-"network": true,
-"filesystem": false,
-"scripting": false
+  "shell": {
+    "name": "REDTOPS",
+    "version": "0.3",
+    "prompt": "RT> "
+  },
+  "theme": "assets/themes/default_theme.json",
+  "modules": {
+    "network": true,
+    "filesystem": false,
+    "scripting": false
+  }
 }
-}
+
