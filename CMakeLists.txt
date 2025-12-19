@@ -16,22 +16,26 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # Recursively collect all source files
 file(GLOB_RECURSE REDTOPS_SOURCES
+    LIST_DIRECTORIES false
     "${PROJECT_SOURCE_DIR}/src/*.cpp"
 )
+
+# Filter out anything in the Depreciated folder
+list(FILTER REDTOPS_SOURCES EXCLUDE REGEX "Depreciated")
 
 # Create executable
 add_executable(redtops ${REDTOPS_SOURCES})
 
 # --- PLATFORM NETWORKING FIX ---
 if (WIN32)
-    message(STATUS "Configuring networking for Windows...")
-    target_compile_definitions(redtops PRIVATE _WIN32_WINNT=0x0600)
-    target_link_libraries(redtops PRIVATE iphlpapi ws2_32)
+  message(STATUS "Configuring networking for Windows...")
+  target_compile_definitions(redtops PRIVATE _WIN32_WINNT=0x0600)
+  target_link_libraries(redtops PRIVATE iphlpapi ws2_32)
 elseif(UNIX AND NOT APPLE)
-    message(STATUS "Configuring networking for Linux...")
-    target_compile_definitions(redtops PRIVATE _GNU_SOURCE)
+  message(STATUS "Configuring networking for Linux...")
+  target_compile_definitions(redtops PRIVATE _GNU_SOURCE)
 elseif(APPLE)
-    message(STATUS "Configuring networking for macOS...")
+  message(STATUS "Configuring networking for macOS...")
 endif()
 # --------------------------------
 

@@ -96,14 +96,38 @@ void Shell::RegisterBuiltins() {
 }
 
 void Shell::Start() {
-    renderer_.Init();
+    auto& renderer = TerminalRenderer::Instance();
+    renderer.Init();
+
+    // 1. Load and display the ASCII art immediately
     std::ifstream f("../assets/screens/boot.txt", std::ios::binary);
-    std::string boot;
-    if (f) boot.assign((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-    renderer_.DrawBootScreen(boot);
-    std::cout << std::flush;
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    if (f) {
+        std::string boot((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        renderer.PrintLine(boot, Color::CYAN);
+    }
+
+    // 2. Simulated "System Check" sequence
+    renderer.Typewrite(" > Initializing REDTOPS Kernel v0.5.0...", 10, Color::GREEN);
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+    renderer.Typewrite(" > Checking System Architecture... [OK]", 10, Color::GREEN);
+    
+#ifdef _GNU_SOURCE
+    renderer.PrintLine(" > OS: Linux Detected", Color::DIM);
+#endif
+
+    // 3. Register Commands with visual feedback
+    renderer.Typewrite(" > Loading Network Modules...", 10, Color::GREEN);
     RegisterBuiltins();
+    renderer.PrintLine("   Builtins loaded.", Color::DIM);
+
+    // 4. Final transition
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    renderer.Typewrite(" > Terminal Access Granted.", 30, Color::CYAN);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    // renderer.Clear(); // This would remove the boot sequence which nah i want it :3
+    
     EnableRawMode();
     running_ = true;
     MainLoop();
