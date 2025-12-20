@@ -92,6 +92,7 @@ void Shell::RegisterBuiltins() {
         void Execute(const std::vector<std::string>&) override { TerminalRenderer::Instance().Clear(); }
         std::string Name() const override { return "clear"; }
     };
+    CommandRegistry::Instance().Register("cls", std::make_unique<ClearCommand>());
     CommandRegistry::Instance().Register("clear", std::make_unique<ClearCommand>());
 }
 
@@ -107,7 +108,7 @@ void Shell::Start() {
     }
 
     // 2. Simulated "System Check" sequence
-    renderer.Typewrite(" > Initializing REDTOPS Kernel v0.5.0...", 10, Color::GREEN);
+    renderer.Typewrite(" > Initializing REDTOPS Kernel v0.5.1...", 10, Color::GREEN);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     renderer.Typewrite(" > Checking System Architecture... [OK]", 10, Color::GREEN);

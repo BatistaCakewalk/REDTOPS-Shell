@@ -19,6 +19,7 @@ static std::unordered_map<std::string, CommandMeta> command_metadata = {
     // ---------------- Built-in commands ----------------
     {"help",     {"Show this help message", "Built-in", "help [command]"}},
     {"exit",     {"Exit the shell", "Built-in", "exit"}},
+    {"cls",      {"Shortcut for clearing screen", "Built-in", "clear"}},
     {"clear",    {"Clear the terminal screen", "Built-in", "clear"}},
     {"cd",       {"Change current directory", "Built-in", "cd [PATH]"}},
     {"pwd",      {"Print working directory", "Built-in", "pwd"}},
