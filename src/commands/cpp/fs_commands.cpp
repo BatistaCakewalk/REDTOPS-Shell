@@ -1,5 +1,6 @@
 #include "../headers/fs_commands.hpp"
 #include "../../core/header/TerminalRenderer.hpp"
+#include "../../core/header/Exceptions.hpp" // Include custom exceptions
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -58,7 +59,7 @@ void PwdCommand::Execute(const std::vector<std::string>&) {
         auto p = fs::current_path();
         TerminalRenderer::Instance().PrintLine(p.string());
     } catch (const fs::filesystem_error& e) {
-        TerminalRenderer::Instance().PrintLine(std::string("pwd error: ") + e.what());
+        throw RedTops::CommandError(std::string("pwd: ") + e.what());
     }
 }
 
@@ -73,8 +74,7 @@ void CdCommand::Execute(const std::vector<std::string>& args) {
         }
         if (home) target = home;
         else {
-            TerminalRenderer::Instance().PrintLine("cd: HOME not set");
-            return;
+            throw RedTops::CommandError("cd: HOME not set");
         }
     } else {
         target = ExpandHome(args[0]);
@@ -85,8 +85,7 @@ void CdCommand::Execute(const std::vector<std::string>& args) {
         if (p.is_relative()) p = fs::current_path() / p;
         fs::current_path(fs::weakly_canonical(p));
     } catch (const fs::filesystem_error& e) {
-        TerminalRenderer::Instance().PrintLine(std::string("cd: ") + e.what());
-        return;
+        throw RedTops::CommandError(std::string("cd: ") + e.what());
     }
 
     // --- refresh prompt ---
@@ -118,8 +117,7 @@ void LsCommand::Execute(const std::vector<std::string>& args) {
     try {
         if (target.is_relative()) target = fs::current_path() / target;
         if (!fs::exists(target)) {
-            TerminalRenderer::Instance().PrintLine("ls: target does not exist");
-            return;
+            throw RedTops::CommandError("ls: target does not exist: " + target.string());
         }
 
         if (!fs::is_directory(target)) {
@@ -156,27 +154,24 @@ void LsCommand::Execute(const std::vector<std::string>& args) {
             }
         }
     } catch (const fs::filesystem_error& e) {
-        TerminalRenderer::Instance().PrintLine(std::string("ls: ") + e.what());
+        throw RedTops::CommandError(std::string("ls: ") + e.what());
     }
 }
 
 // ---------- cat ----------
 void CatCommand::Execute(const std::vector<std::string>& args) {
     if (args.empty()) {
-        TerminalRenderer::Instance().PrintLine("cat: missing file operand");
-        return;
+        throw RedTops::CommandError("cat: missing file operand");
     }
     fs::path p(ExpandHome(args[0]));
     if (p.is_relative()) p = fs::current_path() / p;
 
     try {
         if (!fs::exists(p)) {
-            TerminalRenderer::Instance().PrintLine("cat: file does not exist");
-            return;
+            throw RedTops::CommandError("cat: file does not exist: " + p.string());
         }
         if (fs::is_directory(p)) {
-            TerminalRenderer::Instance().PrintLine("cat: cannot display a directory");
-            return;
+            throw RedTops::CommandError("cat: cannot display a directory: " + p.string());
         }
         std::ifstream ifs(p, std::ios::binary);
         std::string line;
@@ -184,15 +179,14 @@ void CatCommand::Execute(const std::vector<std::string>& args) {
             TerminalRenderer::Instance().PrintLine(line);
         }
     } catch (const fs::filesystem_error& e) {
-        TerminalRenderer::Instance().PrintLine(std::string("cat: ") + e.what());
+        throw RedTops::CommandError(std::string("cat: ") + e.what());
     }
 }
 
 // ---------- mkdir ----------
 void MkdirCommand::Execute(const std::vector<std::string>& args) {
     if (args.empty()) {
-        TerminalRenderer::Instance().PrintLine("mkdir: missing operand");
-        return;
+        throw RedTops::CommandError("mkdir: missing operand");
     }
 
     fs::path p = ExpandHome(args[0]);
@@ -201,15 +195,14 @@ void MkdirCommand::Execute(const std::vector<std::string>& args) {
     try {
         fs::create_directories(p);
     } catch (const fs::filesystem_error& e) {
-        TerminalRenderer::Instance().PrintLine(std::string("mkdir: ") + e.what());
+        throw RedTops::CommandError(std::string("mkdir: ") + e.what());
     }
 }
 
 // ---------- rm ----------
 void RmCommand::Execute(const std::vector<std::string>& args) {
     if (args.empty()) {
-        TerminalRenderer::Instance().PrintLine("rm: missing operand");
-        return;
+        throw RedTops::CommandError("rm: missing operand");
     }
 
     bool recursive = false;
@@ -221,8 +214,7 @@ void RmCommand::Execute(const std::vector<std::string>& args) {
     }
 
     if (operands.empty()) {
-        TerminalRenderer::Instance().PrintLine("rm: missing operand");
-        return;
+        throw RedTops::CommandError("rm: missing operand");
     }
 
     for (auto &op : operands) {
@@ -231,12 +223,10 @@ void RmCommand::Execute(const std::vector<std::string>& args) {
 
         try {
             if (!fs::exists(p)) {
-                TerminalRenderer::Instance().PrintLine("rm: " + op + ": No such file or directory");
-                continue;
+                throw RedTops::CommandError("rm: " + op + ": No such file or directory");
             }
             if (fs::is_directory(p) && !recursive) {
-                TerminalRenderer::Instance().PrintLine("rm: " + op + ": is a directory (use -r to remove directories)");
-                continue;
+                throw RedTops::CommandError("rm: " + op + ": is a directory (use -r to remove directories)");
             }
 
             std::error_code ec;
@@ -245,10 +235,10 @@ void RmCommand::Execute(const std::vector<std::string>& args) {
             else
                 fs::remove(p, ec);
 
-            if (ec) TerminalRenderer::Instance().PrintLine("rm: " + ec.message());
+            if (ec) throw RedTops::CommandError("rm: " + ec.message());
 
         } catch (const fs::filesystem_error& e) {
-            TerminalRenderer::Instance().PrintLine(std::string("rm: ") + e.what());
+            throw RedTops::CommandError(std::string("rm: ") + e.what());
         }
     }
 }
@@ -256,8 +246,7 @@ void RmCommand::Execute(const std::vector<std::string>& args) {
 // ---------- cp ----------
 void CpCommand::Execute(const std::vector<std::string>& args) {
     if (args.size() < 2) {
-        TerminalRenderer::Instance().PrintLine("cp: usage: cp [-r] <source> <dest>");
-        return;
+        throw RedTops::CommandError("cp: usage: cp [-r] <source> <dest>");
     }
 
     bool recursive = false;
@@ -268,8 +257,7 @@ void CpCommand::Execute(const std::vector<std::string>& args) {
     }
 
     if (ops.size() != 2) {
-        TerminalRenderer::Instance().PrintLine("cp: usage: cp [-r] <source> <dest>");
-        return;
+        throw RedTops::CommandError("cp: usage: cp [-r] <source> <dest>");
     }
 
     fs::path src = ExpandHome(ops[0]);
@@ -279,13 +267,11 @@ void CpCommand::Execute(const std::vector<std::string>& args) {
 
     try {
         if (!fs::exists(src)) {
-            TerminalRenderer::Instance().PrintLine("cp: source does not exist");
-            return;
+            throw RedTops::CommandError("cp: source does not exist: " + src.string());
         }
 
         if (fs::is_directory(src) && !recursive) {
-            TerminalRenderer::Instance().PrintLine("cp: omitting directory (use -r to copy directories)");
-            return;
+            throw RedTops::CommandError("cp: omitting directory (use -r to copy directories): " + src.string());
         }
 
         if (fs::is_directory(src)) {
@@ -306,15 +292,14 @@ void CpCommand::Execute(const std::vector<std::string>& args) {
             fs::copy_file(src, dst, fs::copy_options::overwrite_existing);
         }
     } catch (const fs::filesystem_error& e) {
-        TerminalRenderer::Instance().PrintLine(std::string("cp: ") + e.what());
+        throw RedTops::CommandError(std::string("cp: ") + e.what());
     }
 }
 
 // ---------- mv ----------
 void MvCommand::Execute(const std::vector<std::string>& args) {
     if (args.size() != 2) {
-        TerminalRenderer::Instance().PrintLine("mv: usage: mv <source> <dest>");
-        return;
+        throw RedTops::CommandError("mv: usage: mv <source> <dest>");
     }
 
     fs::path src = ExpandHome(args[0]);
@@ -324,8 +309,7 @@ void MvCommand::Execute(const std::vector<std::string>& args) {
 
     try {
         if (!fs::exists(src)) {
-            TerminalRenderer::Instance().PrintLine("mv: source does not exist");
-            return;
+            throw RedTops::CommandError("mv: source does not exist: " + src.string());
         }
 
         if (fs::exists(dst) && fs::is_directory(dst))
@@ -336,7 +320,7 @@ void MvCommand::Execute(const std::vector<std::string>& args) {
         fs::rename(src, dst);
 
     } catch (const fs::filesystem_error& e) {
-        TerminalRenderer::Instance().PrintLine(std::string("mv: ") + e.what());
+        throw RedTops::CommandError(std::string("mv: ") + e.what());
     }
 }
 

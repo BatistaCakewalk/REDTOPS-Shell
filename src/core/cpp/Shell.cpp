@@ -7,8 +7,10 @@
 #include "../../commands/headers/trace.hpp"
 #include "../../commands/headers/portscan.hpp"
 #include "../../commands/headers/netscan.hpp"
+#include "../../commands/headers/sniff.hpp" // Include the new sniff command header
 #include "../header/CommandRegistry.hpp"
 #include "../header/CommandParser.hpp"
+#include "../header/Exceptions.hpp" // Include custom exceptions
 #include <iostream>
 #include <fstream>
 #include <thread>
@@ -62,12 +64,44 @@ struct TempCookedMode {
     ~TempCookedMode() { if (had_raw) EnableRawMode(); }
 };
 
-Shell::Shell() : running_(false), history_index_(-1) {}
-Shell::~Shell() { DisableRawMode(); }
+Shell::Shell() : running_(false), history_index_(-1) {
+    LoadHistory();
+}
+Shell::~Shell() {
+    SaveHistory();
+    DisableRawMode();
+}
 
 Shell& Shell::Instance() {
     static Shell instance;
     return instance;
+}
+
+void Shell::LoadHistory() {
+    std::ifstream history_file(history_file_path_);
+    if (history_file.is_open()) {
+        std::string line;
+        while (std::getline(history_file, line)) {
+            history_.push_back(line);
+        }
+        history_file.close();
+        history_index_ = history_.size();
+    }
+}
+
+void Shell::SaveHistory() {
+    std::ofstream history_file(history_file_path_, std::ios::trunc);
+    if (history_file.is_open()) {
+        // Ensure we don't save more than max_history_size_
+        size_t start_index = 0;
+        if (history_.size() > max_history_size_) {
+            start_index = history_.size() - max_history_size_;
+        }
+        for (size_t i = start_index; i < history_.size(); ++i) {
+            history_file << history_[i] << std::endl;
+        }
+        history_file.close();
+    }
 }
 
 std::string Shell::GetPromptString() const {
@@ -81,6 +115,7 @@ void Shell::RegisterBuiltins() {
     CommandRegistry::Instance().Register("netinfo", std::make_unique<NetInfoCommand>());
     CommandRegistry::Instance().Register("trace", std::make_unique<TraceCommand>());
     CommandRegistry::Instance().Register("netscan", std::make_unique<NetScanCommand>());
+    CommandRegistry::Instance().Register("sniff", std::make_unique<SniffCommand>());
     CommandRegistry::Instance().Register("portscan", std::make_unique<PortScanCommand>());
     CommandRegistry::Instance().Register("exit", std::make_unique<ExitCommand>(this));
     CommandRegistry::Instance().Register("pwd", std::make_unique<PwdCommand>());
@@ -242,10 +277,18 @@ void Shell::MainLoop() {
             while (std::getline(ss, part, ';')) {
                 auto tokens = CommandParser::Tokenize(part);
                 if (tokens.empty()) continue;
-                auto* cmd = CommandRegistry::Instance().Get(tokens[0]);
-                if (!cmd) { renderer_.PrintLine("Unknown command: " + tokens[0]); continue; }
-                tokens.erase(tokens.begin());
-                cmd->Execute(tokens);
+                
+                try {
+                    auto* cmd = CommandRegistry::Instance().Get(tokens[0]);
+                    tokens.erase(tokens.begin());
+                    cmd->Execute(tokens);
+                } catch (const RedTops::RedTopsException& e) {
+                    TerminalRenderer::Instance().PrintError(e.what());
+                } catch (const std::exception& e) {
+                    TerminalRenderer::Instance().PrintError("Unhandled standard exception: " + std::string(e.what()));
+                } catch (...) {
+                    TerminalRenderer::Instance().PrintError("An unknown error occurred during command execution.");
+                }
             }
             std::cout << std::flush;
         }

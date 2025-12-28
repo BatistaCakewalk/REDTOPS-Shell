@@ -34,6 +34,14 @@ public:
         std::cout << color << text << Color::RESET << std::endl;
     }
 
+    void PrintError(const std::string& error_message) {
+        PrintLine("ERROR: " + error_message, Color::RED);
+    }
+
+    void PrintWarning(const std::string& warning_message) {
+        PrintLine("WARNING: " + warning_message, Color::AMBER);
+    }
+
     // Hacknet-style typewriter effect for boot-up or critical alerts
     void Typewrite(const std::string& text, int delay_ms = 15, const std::string& color = Color::RESET) {
         std::cout << color;

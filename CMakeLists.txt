@@ -11,6 +11,22 @@ FetchContent_MakeAvailable(Catch2)
 
 enable_testing() # Enable testing for CTest
 
+# Try to find PCAP using pkg-config first for better robustness
+find_package(PkgConfig QUIET)
+if (PKG_CONFIG_FOUND)
+    pkg_check_modules(PCAP_PKG libpcap QUIET)
+endif()
+
+if (PCAP_PKG_FOUND)
+    message(STATUS "Found libpcap (via PkgConfig): ${PCAP_PKG_LIBRARIES}")
+    set(PCAP_INCLUDE_DIRS ${PCAP_PKG_INCLUDE_DIRS})
+    set(PCAP_LIBRARIES ${PCAP_PKG_LIBRARIES})
+else()
+    # Fallback to CMake's FindPCAP module
+    find_package(PCAP REQUIRED)
+    message(STATUS "Found libpcap (via FindPCAP): ${PCAP_LIBRARIES}")
+endif()
+
 # Use C++20
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,6 +39,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Include header directory
 include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PCAP_INCLUDE_DIRS})
 
 # Recursively collect all source files
 file(GLOB_RECURSE REDTOPS_SOURCES
@@ -35,6 +52,7 @@ list(FILTER REDTOPS_SOURCES EXCLUDE REGEX "Depreciated")
 
 # Create executable
 add_executable(redtops ${REDTOPS_SOURCES})
+target_link_libraries(redtops PRIVATE ${PCAP_LIBRARIES})
 
 # --- PLATFORM NETWORKING FIX ---
 if (WIN32)

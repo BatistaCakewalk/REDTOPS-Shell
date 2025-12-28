@@ -1,4 +1,5 @@
 #include "../header/CommandRegistry.hpp"
+#include "../header/Exceptions.hpp" // Include the custom exception header
 #include <algorithm>
 
 
@@ -15,7 +16,9 @@ void CommandRegistry::Register(const std::string& name, std::unique_ptr<Command>
 
 Command* CommandRegistry::Get(const std::string& name) const {
     auto it = commands_.find(name);
-    if (it == commands_.end()) return nullptr;
+    if (it == commands_.end()) {
+        throw RedTops::CommandError("Unknown command: " + name);
+    }
     return it->second.get();
 }
 

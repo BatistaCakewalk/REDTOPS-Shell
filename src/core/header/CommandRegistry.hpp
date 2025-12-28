@@ -1,4 +1,5 @@
 #pragma once
+#include "Exceptions.hpp" // Include the custom exception header
 #include "Command.hpp"
 #include <string>
 #include <unordered_map>
@@ -11,7 +12,7 @@ public:
 
 
     void Register(const std::string& name, std::unique_ptr<Command> cmd);
-    Command* Get(const std::string& name) const;
+    Command* Get(const std::string& name) const; // Keep declaration for now, implementation will throw
     std::vector<std::string> GetCommandList() const;
 
 
