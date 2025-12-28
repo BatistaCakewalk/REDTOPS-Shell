@@ -1,6 +1,7 @@
 #include "../headers/sniff.hpp"
 #include "../../core/header/TerminalRenderer.hpp"
 #include "../../core/header/Exceptions.hpp"
+#include "../../core/header/Shell.hpp" // Include Shell.hpp for handle management
 #include <pcap.h>
 #include <arpa/inet.h>
 #include <net/ethernet.h>
@@ -95,10 +96,16 @@ void SniffCommand::Execute(const std::vector<std::string>& args) {
         TerminalRenderer::Instance().PrintLine("Capturing " + std::to_string(count) + " packets.");
     }
 
+    // Set the pcap handle in the Shell so the signal handler can access it
+    Shell::Instance().SetCurrentPcapHandle(handle);
+
     // Loop forever (or until 'count' packets are captured)
     // The packet_handler function will be called for each packet
     int result = pcap_loop(handle, count, packet_handler, NULL);
     
+    // Clear the pcap handle from the Shell once done or on error
+    Shell::Instance().ClearCurrentPcapHandle();
+
     if (result == -1) { // Error
         pcap_close(handle);
         throw RedTops::NetworkError("sniff: Error during capture: " + std::string(pcap_geterr(handle)));

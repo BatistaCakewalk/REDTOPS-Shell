@@ -6,6 +6,7 @@
 #include <string>
 #include <filesystem> // For path manipulation
 #include <fstream>    // For file I/O
+#include <pcap.h>     // For pcap_t type
 
 class Shell {
 public:
@@ -47,5 +48,12 @@ private:
     // QOL helpers
     std::string ApplyAliases(const std::string& input); // replaces input with alias if exists
     std::string TabComplete(const std::string& prefix); // completes command names starting with prefix
+
+    pcap_t* current_pcap_handle_ = nullptr; // For managing active sniffing
+
+public: // Make these public so SniffCommand can access them
+    void SetCurrentPcapHandle(pcap_t* handle) { current_pcap_handle_ = handle; }
+    void ClearCurrentPcapHandle() { current_pcap_handle_ = nullptr; }
+    pcap_t* GetCurrentPcapHandle() const { return current_pcap_handle_; }
 };
 

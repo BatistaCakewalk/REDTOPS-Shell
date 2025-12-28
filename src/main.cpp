@@ -1,8 +1,14 @@
 #include "core/header/Shell.hpp"
 #include <csignal>
 #include <iostream>
+#include <pcap.h> // Required for pcap_breakloop
 
 void SignalHandler(int signum) {
+    // If a sniff command is active, break its pcap_loop
+    pcap_t* handle = Shell::Instance().GetCurrentPcapHandle();
+    if (handle != nullptr) {
+        pcap_breakloop(handle);
+    }
     Shell::Instance().Stop();
 }
 
