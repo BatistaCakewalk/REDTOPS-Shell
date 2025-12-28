@@ -18,7 +18,7 @@ public:
 
     ~Shell(); // Public destructor
 
-    void Start();
+    void Start(const char* argv0);
     void Stop();
 
     std::string GetPromptString() const;

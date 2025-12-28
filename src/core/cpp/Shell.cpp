@@ -1,4 +1,8 @@
 #include "../header/Shell.hpp"
+#include "../header/CommandRegistry.hpp"
+#include "../header/CommandParser.hpp"
+#include "../header/Exceptions.hpp" // Include custom exceptions
+#include "../header/ConfigLoader.hpp" // Include ConfigLoader for configuration management
 #include "../../commands/headers/ping.hpp"
 #include "../../commands/headers/sysinfo.hpp"
 #include "../../commands/headers/netinfo.hpp"
@@ -8,9 +12,6 @@
 #include "../../commands/headers/portscan.hpp"
 #include "../../commands/headers/netscan.hpp"
 #include "../../commands/headers/sniff.hpp" // Include the new sniff command header
-#include "../header/CommandRegistry.hpp"
-#include "../header/CommandParser.hpp"
-#include "../header/Exceptions.hpp" // Include custom exceptions
 #include <iostream>
 #include <fstream>
 #include <thread>
@@ -136,19 +137,44 @@ void Shell::RegisterBuiltins() {
     CommandRegistry::Instance().Register("clear", std::make_unique<ClearCommand>());
 }
 
-void Shell::Start() {
+void Shell::Start(const char* argv0) {
     auto& renderer = TerminalRenderer::Instance();
     renderer.Init();
 
+    // Determine executable directory
+    std::filesystem::path argv0_path(argv0);
+    std::filesystem::path executable_dir = argv0_path.parent_path();
+
+    // Load configuration
+    // Configs are copied to build/bin/configs/
+    std::filesystem::path config_file_path_obj = executable_dir / "configs" / "default.json";
+    std::string config_file_path = config_file_path_obj.string();
+    
+    std::string shell_version = "UNKNOWN"; // Default version
+    std::string shell_name = "REDTOPS Kernel"; // Default name
+
+    try {
+        ConfigLoader::Instance().LoadConfig(config_file_path);
+        shell_version = ConfigLoader::Instance().GetShellVersion();
+        shell_name = ConfigLoader::Instance().GetShellName() + " Kernel";
+    } catch (const RedTops::ConfigError& e) {
+        renderer.PrintError("Configuration Error: " + std::string(e.what()));
+        // Proceed with default values
+    } catch (const std::exception& e) {
+        renderer.PrintError("General Error loading config: " + std::string(e.what()));
+    }
+
     // 1. Load and display the ASCII art immediately
-    std::ifstream f("../assets/screens/boot.txt", std::ios::binary);
+    // Assets are copied to build/bin/assets/
+    std::filesystem::path boot_screen_path_obj = executable_dir / "assets" / "screens" / "boot.txt";
+    std::ifstream f(boot_screen_path_obj.string(), std::ios::binary);
     if (f) {
         std::string boot((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
         renderer.PrintLine(boot, Color::CYAN);
     }
 
     // 2. Simulated "System Check" sequence
-    renderer.Typewrite(" > Initializing REDTOPS Kernel v0.5.1...", 10, Color::GREEN);
+    renderer.Typewrite(" > Initializing " + shell_name + " v" + shell_version, 10, Color::GREEN);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     renderer.Typewrite(" > Checking System Architecture... [OK]", 10, Color::GREEN);

@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
     std::signal(SIGINT, SignalHandler);  // Catch Ctrl+C
     std::signal(SIGTERM, SignalHandler); // Catch kill commands
 
-    Shell::Instance().Start();
+    Shell::Instance().Start(argv[0]);
 
     return 0;
 }

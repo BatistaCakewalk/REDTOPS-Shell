@@ -9,6 +9,18 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.11.2 # Use a specific tag for stability
+)
+FetchContent_GetProperties(nlohmann_json)
+if(NOT nlohmann_json_POPULATED)
+    FetchContent_Populate(nlohmann_json)
+    add_library(nlohmann_json INTERFACE)
+    target_include_directories(nlohmann_json INTERFACE ${nlohmann_json_SOURCE_DIR}/include)
+endif()
+
 enable_testing() # Enable testing for CTest
 
 # Try to find PCAP using pkg-config first for better robustness
@@ -53,6 +65,7 @@ list(FILTER REDTOPS_SOURCES EXCLUDE REGEX "Depreciated")
 # Create executable
 add_executable(redtops ${REDTOPS_SOURCES})
 target_link_libraries(redtops PRIVATE ${PCAP_LIBRARIES})
+target_link_libraries(redtops PRIVATE nlohmann_json)
 
 # --- PLATFORM NETWORKING FIX ---
 if (WIN32)

@@ -38,7 +38,8 @@ static std::unordered_map<std::string, CommandMeta> command_metadata = {
     {"sysinfo",  {"Display system information", "Network", "sysinfo"}},
     {"trace",    {"Perform a traceroute to a host", "Network", "trace <host>"}},
     {"netscan",  {"Scan local subnet for live hosts", "Network", "netscan [subnet]"}},
-    {"portscan", {"Scan ports on a host", "Network", "portscan <host> [start_port] [end_port]"}}
+    {"portscan", {"Scan ports on a host", "Network", "portscan <host> [start_port] [end_port]"}},
+    {"sniff", {"Sniffs packets from a network device.", "Network", "sniff <interface> [count]"}}
 };
 
 
