@@ -1,6 +1,6 @@
 #pragma once
-#include "../../core/header/Command.h"
-#include "../../core/header/Shell.h"
+#include "../../core/header/Command.hpp"
+#include "../../core/header/Shell.hpp"
 
 class ExitCommand : public Command {
 public:

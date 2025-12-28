@@ -1,6 +1,6 @@
 #include "../headers/clear.hpp"
 #include "../../core/header/TerminalRenderer.hpp"
-#include "../../core/header/CommandRegistry.h"
+#include "../../core/header/CommandRegistry.hpp"
 #include <memory>
 #include <iostream>
 

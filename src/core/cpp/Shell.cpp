@@ -1,4 +1,4 @@
-#include "../header/Shell.h"
+#include "../header/Shell.hpp"
 #include "../../commands/headers/ping.hpp"
 #include "../../commands/headers/sysinfo.hpp"
 #include "../../commands/headers/netinfo.hpp"
@@ -7,8 +7,8 @@
 #include "../../commands/headers/trace.hpp"
 #include "../../commands/headers/portscan.hpp"
 #include "../../commands/headers/netscan.hpp"
-#include "../header/CommandRegistry.h"
-#include "../header/CommandParser.h"
+#include "../header/CommandRegistry.hpp"
+#include "../header/CommandParser.hpp"
 #include <iostream>
 #include <fstream>
 #include <thread>
@@ -64,6 +64,11 @@ struct TempCookedMode {
 
 Shell::Shell() : running_(false), history_index_(-1) {}
 Shell::~Shell() { DisableRawMode(); }
+
+Shell& Shell::Instance() {
+    static Shell instance;
+    return instance;
+}
 
 std::string Shell::GetPromptString() const {
     try { return "REDTOPS | " + std::filesystem::current_path().string() + "> "; }

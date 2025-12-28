@@ -1,5 +1,5 @@
 #pragma once
-#include "Command.h"
+#include "Command.hpp"
 #include <string>
 #include <unordered_map>
 #include <memory>

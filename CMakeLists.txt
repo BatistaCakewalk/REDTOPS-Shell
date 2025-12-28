@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.16)
 project(redtops VERSION 0.1 LANGUAGES CXX)
 
+include(FetchContent)
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG v3.4.0 # Use a specific tag for stability
+)
+FetchContent_MakeAvailable(Catch2)
+
+enable_testing() # Enable testing for CTest
+
 # Use C++20
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -54,3 +64,5 @@ add_custom_command(TARGET redtops POST_BUILD
 )
 
 message(STATUS "REDTOPS build configured successfully.")
+
+add_subdirectory(tests)

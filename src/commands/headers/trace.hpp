@@ -1,5 +1,5 @@
 #pragma once
-#include "../../core/header/Command.h"
+#include "../../core/header/Command.hpp"
 #include <vector>
 #include <string>
 

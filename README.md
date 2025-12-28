@@ -3,8 +3,8 @@ Hacknet themed shell designed for Network Operations.
 
 
 ## Quick start
-### Please note that this only supports best on Linux.
-### IT WILL NOT COMPILE ANYWHERE ELSE.
+### Please note that this currently supports best on Linux.
+### While there are build configurations for other platforms, full compatibility is not yet guaranteed.
 
 ```bash
 mkdir build && cd build

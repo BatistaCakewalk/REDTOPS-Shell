@@ -7,16 +7,22 @@
 
 class Shell {
 public:
-    Shell();
-    ~Shell();
+    static Shell& Instance(); // Static method to access the single instance
+
+    // Delete copy constructor and assignment operator
+    Shell(const Shell&) = delete;
+    Shell& operator=(const Shell&) = delete;
+
+    ~Shell(); // Public destructor
 
     void Start();
     void Stop();
 
-    // --- Add this ---
     std::string GetPromptString() const;
 
 private:
+    Shell(); // Private constructor
+
     bool running_ = false;
 
     // Reference to the singleton
